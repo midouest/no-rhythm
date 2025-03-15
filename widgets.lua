@@ -39,7 +39,7 @@ function init()
     end,
   }
   
-  direction_toggle = toggle.new{
+  direction_button = button.new{
     x=1,
     y=7,
     action=function(s)
@@ -61,6 +61,9 @@ function init()
     size=8,
     action=function(value)
       print("step: "..value)
+      if channel_radio.state == 1 then
+        pitch_keyboard.value = channel_faders[1][value].value
+      end
     end,
   }
   
@@ -84,6 +87,8 @@ function init()
     x=2,
     action=function(note)
       print("pitch: "..note)
+      local step = step_radio.state
+      channel_faders[1][step].value = note
     end,
   }
   
@@ -114,7 +119,7 @@ function init()
   widgets = {
     channel_radio,
     clock_toggle,
-    direction_toggle,
+    direction_button,
     interrupt_toggle,
     step_radio,
     pitch_keyboard,
