@@ -11,17 +11,17 @@ clock_id = nil
 seq_dir = 1
 
 seqs = {
-  s{0,0,0,0,0,0,0,0},
-  s{0,0,0,0,0,0,0,0},
+  s{60,60,60,60,60,60,60,60},
+  s{127,0,0,0,0,0,0,0},
   s{0,0,0,0,0,0,0,0},
 }
 
 selected_chan = 1
 selected_step = 1
 
-strength_mod = 0
-speed = 0
-time_mod = 0
+strength_mod = 127
+speed = 63
+time_mod = 127
 
 grid_needs_redraw = true
 needs_redraw = true
@@ -90,6 +90,7 @@ function init()
       table.insert(step_faders, gui.hfader.new{
         x=5,
         y=j,
+        initial=seqs[i][j],
         hidden=i~=1,
         action=function(value)
           seqs[i][j] = value
@@ -104,6 +105,7 @@ function init()
   
   pitch_keyboard = gui.keyboard.new{
     x=2,
+    initial=seqs[1][1],
     action=function(note)
       seqs[1][selected_step] = note
       channel_faders[1][selected_step].value = note
@@ -112,6 +114,7 @@ function init()
   
   strength_fader = gui.vfader.new{
     x=3,
+    initial=strength_mod,
     hidden=true,
     action=function(value)
       strength_mod = value
@@ -120,6 +123,7 @@ function init()
   
   speed_fader = gui.vfader.new{
     x=2,
+    initial=speed,
     hidden=true,
     action=function(value)
       speed = value
@@ -128,6 +132,7 @@ function init()
   
   time_fader = gui.vfader.new{
     x=3,
+    initial=time_mod,
     hidden=true,
     action=function(value)
       time_mod = value
@@ -211,7 +216,8 @@ function toggle_clock()
       while clock_running do
         local p = seqs[1]()
         local s = seqs[2]()
-        local s_volts = util.linlin(0, 127, 0, 8, s)
+        local strength_scale = util.linlin(0, 127, 0, 1.0, strength_mod)
+        local s_volts = strength_scale * util.linlin(0, 127, 0, 8, s)
         local t = seqs[3]()
         local time_scale = util.linlin(0, 127, 0, 1.0, time_mod)
         local bpm = util.linlin(0, 127, 1, 300, speed - time_scale * t)
