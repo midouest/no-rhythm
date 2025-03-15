@@ -1,19 +1,40 @@
--- grid widget test
+-- 0-ctrl inspired sequencer
 
-local gui = include("lib/gridui")
+s = require("sequins")
+
+gui = include("lib/gridui")
 
 g = grid.connect()
+
+clock_running = false
+clock_id = nil
+seq_dir = 1
+
+seqs = {
+  s{0,0,0,0,0,0,0,0},
+  s{0,0,0,0,0,0,0,0},
+  s{0,0,0,0,0,0,0,0},
+}
+
+selected_chan = 1
+selected_step = 1
+
+strength_mod = 0
+speed = 0
+time_mod = 0
 
 grid_needs_redraw = true
 needs_redraw = true
 
 function init()
+  crow.output[2].action = "pulse(dyn{time=1},dyn{level=8})"
+  crow.output[3].action = "ar(0,dyn{time=1},dyn{level=8},'exp')"
+  
   channel_radio = gui.radio.new{
     x=1,
     y=1,
     size=3,
     action=function(option)
-      print("channel: "..option)
       pitch_keyboard.hidden = option ~= 1
       strength_fader.hidden = option ~= 2
       speed_fader.hidden = option ~= 3
@@ -23,6 +44,7 @@ function init()
           channel_faders[i][j].hidden = i~=option
         end
       end
+      selected_chan = option
     end,
   }
   
@@ -30,15 +52,15 @@ function init()
     x=1,
     y=8,
     action=function(s)
-      print("clock: "..s)
+      toggle_clock(s)
     end,
   }
   
-  direction_button = gui.button.new{
+  direction_toggle = gui.toggle.new{
     x=1,
     y=7,
     action=function(s)
-      print("direction: "..s)
+      toggle_direction(s)
     end,
   }
   
@@ -46,7 +68,6 @@ function init()
     x=1,
     y=6,
     action=function(s)
-      print("interrupt: "..s)
     end,
   }
   
@@ -55,9 +76,9 @@ function init()
     y=1,
     size=8,
     action=function(value)
-      print("step: "..value)
-      if channel_radio.state == 1 then
-        pitch_keyboard.value = channel_faders[1][value].value
+      selected_step = value
+      if selected_chan == 1 then
+        pitch_keyboard.value = seqs[1][value]
       end
     end,
   }
@@ -71,7 +92,10 @@ function init()
         y=j,
         hidden=i~=1,
         action=function(value)
-          print("channel step: "..i.." "..j.." "..value)
+          seqs[i][j] = value
+          if i == 1 and selected_chan == 1 and j == selected_step then
+            pitch_keyboard.value = value
+          end
         end,
       })
     end
@@ -81,9 +105,8 @@ function init()
   pitch_keyboard = gui.keyboard.new{
     x=2,
     action=function(note)
-      print("pitch: "..note)
-      local step = step_radio.state
-      channel_faders[1][step].value = note
+      seqs[1][selected_step] = note
+      channel_faders[1][selected_step].value = note
     end,
   }
   
@@ -91,7 +114,7 @@ function init()
     x=3,
     hidden=true,
     action=function(value)
-      print("strength mod: "..value)
+      strength_mod = value
     end,
   }
   
@@ -99,7 +122,7 @@ function init()
     x=2,
     hidden=true,
     action=function(value)
-      print("speed: "..value)
+      speed = value
     end,
   }
   
@@ -107,14 +130,14 @@ function init()
     x=3,
     hidden=true,
     action=function(value)
-      print("time mod: "..value)
+      time_mod = value
     end,
   }
   
   widgets = {
     channel_radio,
     clock_toggle,
-    direction_button,
+    direction_toggle,
     interrupt_toggle,
     step_radio,
     pitch_keyboard,
@@ -133,7 +156,6 @@ function init()
         x=12+x,
         y=y,
         action=function(s)
-          print("pressure: "..y.." "..x.." "..s)
         end
       })
     end
@@ -179,5 +201,40 @@ function g.key(x, y, s)
       grid_needs_redraw = true
       return
     end
+  end
+end
+
+function toggle_clock()
+  if not clock_running then
+    clock_running = true
+    clock_id = clock.run(function()
+      while clock_running do
+        local p = seqs[1]()
+        local s = seqs[2]()
+        local s_volts = util.linlin(0, 127, 0, 8, s)
+        local t = seqs[3]()
+        local time_scale = util.linlin(0, 127, 0, 1.0, time_mod)
+        local bpm = util.linlin(0, 127, 1, 300, speed - time_scale * t)
+        local delay = 60/bpm/4
+        crow.output[1].volts = (p/12) - 5
+        crow.output[2].dyn.time=delay/2
+        crow.output[2].dyn.level=s_volts
+        crow.output[2]()
+        crow.output[3].dyn.time=delay/2
+        crow.output[3].dyn.level=s_volts
+        crow.output[3]()
+        clock.sleep(delay)
+      end
+    end)
+  else
+    clock_running = false
+    clock.cancel(clock_id)
+  end
+end
+
+function toggle_direction()
+  seq_dir = -seq_dir
+  for _, seq in ipairs(seqs) do
+    seq:step(seq_dir)
   end
 end
