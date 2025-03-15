@@ -1,11 +1,6 @@
 -- grid widget test
 
-local button = include("lib/grid/button")
-local toggle = include("lib/grid/toggle")
-local radio = include("lib/grid/radio")
-local hfader = include("lib/grid/hfader")
-local vfader = include("lib/grid/vfader")
-local keyboard = include("lib/grid/keyboard")
+local gui = include("lib/gridui")
 
 g = grid.connect()
 
@@ -13,7 +8,7 @@ grid_needs_redraw = true
 needs_redraw = true
 
 function init()
-  channel_radio = radio.new{
+  channel_radio = gui.radio.new{
     x=1,
     y=1,
     size=3,
@@ -31,7 +26,7 @@ function init()
     end,
   }
   
-  clock_toggle = toggle.new{
+  clock_toggle = gui.toggle.new{
     x=1,
     y=8,
     action=function(s)
@@ -39,7 +34,7 @@ function init()
     end,
   }
   
-  direction_button = button.new{
+  direction_button = gui.button.new{
     x=1,
     y=7,
     action=function(s)
@@ -47,7 +42,7 @@ function init()
     end,
   }
   
-  interrupt_toggle = toggle.new{
+  interrupt_toggle = gui.toggle.new{
     x=1,
     y=6,
     action=function(s)
@@ -55,7 +50,7 @@ function init()
     end,
   }
   
-  step_radio = radio.new{
+  step_radio = gui.radio.new{
     x=4,
     y=1,
     size=8,
@@ -71,7 +66,7 @@ function init()
   for i = 1, 3 do
     step_faders = {}
     for j = 1, 8 do
-      table.insert(step_faders, hfader.new{
+      table.insert(step_faders, gui.hfader.new{
         x=5,
         y=j,
         hidden=i~=1,
@@ -83,7 +78,7 @@ function init()
     table.insert(channel_faders, step_faders)
   end
   
-  pitch_keyboard = keyboard.new{
+  pitch_keyboard = gui.keyboard.new{
     x=2,
     action=function(note)
       print("pitch: "..note)
@@ -92,7 +87,7 @@ function init()
     end,
   }
   
-  strength_fader = vfader.new{
+  strength_fader = gui.vfader.new{
     x=3,
     hidden=true,
     action=function(value)
@@ -100,7 +95,7 @@ function init()
     end,
   }
   
-  speed_fader = vfader.new{
+  speed_fader = gui.vfader.new{
     x=2,
     hidden=true,
     action=function(value)
@@ -108,7 +103,7 @@ function init()
     end,
   }
   
-  time_fader = vfader.new{
+  time_fader = gui.vfader.new{
     x=3,
     hidden=true,
     action=function(value)
@@ -134,7 +129,7 @@ function init()
   end
   for y=1,8 do
     for x=1,4 do
-      table.insert(widgets, button.new{
+      table.insert(widgets, gui.button.new{
         x=12+x,
         y=y,
         action=function(s)
