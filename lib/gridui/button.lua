@@ -10,6 +10,7 @@ function Button.new(opts)
   obj.state = 0
   obj.action = opts.action
   obj.hidden = opts.hidden or false
+  obj.level = opts.level or 0
   return setmetatable(obj, Button)
 end
 
@@ -28,7 +29,9 @@ function Button:redraw(g)
   if self.hidden then
     return
   end
-  if self.state > 0 then
+  if self.level > 0 then
+    g:led(self.x, self.y, self.level)
+  elseif self.state > 0 then
     g:led(self.x, self.y, self.on)
   else
     g:led(self.x, self.y, self.off)
