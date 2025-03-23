@@ -1,9 +1,10 @@
 -- 0-ctrl inspired sequencer
 
+tab = require("tabutil")
 s = require("sequins")
 
 gui = include("lib/gridui/gridui")
-
+modmatrix = include("lib/patcher/modmatrix")
 g = grid.connect()
 
 clock_running = false
@@ -40,10 +41,96 @@ grid_needs_redraw = true
 needs_redraw = true
 
 function init()
-  crow.output[2].action = "pulse(dyn{time=1},dyn{level=8})"
-  crow.output[3].action = "ar(0,dyn{time=1},dyn{level=8},'exp')"
-  crow.output[4].slew = 0.1
+  norns.crow.loadscript("no-rhythm.lua", false, function()
+    matrix = modmatrix.new()
+    
+    matrix:add_source{
+      id="pitch",
+      type="cv",
+    }
+    matrix:add_source{
+      id="strength",
+      type="cv",
+    }
+    matrix:add_source{
+      id="time",
+      type="cv",
+    }
+    matrix:add_source{
+      id="pressure",
+      type="cv",
+    }
+    matrix:add_source{
+      id="touch_gate",
+      type="gate",
+    }
+    matrix:add_source{
+      id="dyn_gate",
+      type="gate",
+    }
+    matrix:add_source{
+      id="dyn_env",
+      type="env",
+    }
+    for i = 1, 8 do
+      matrix:add_source{
+        id="gate"..i,
+        type="gate",
+      }
+    end
   
+    matrix:add_sink{
+      id="dyn_reset",
+      gate=function(s)
+      end,
+    }
+    matrix:add_sink{
+      id="stop",
+      gate=function(s)
+      end,
+    }
+    matrix:add_sink{
+      id="direction",
+      gate=function(s)
+      end,
+    }
+    matrix:add_sink{
+      id="strength",
+      cv=function(v)
+      end,
+    }
+    matrix:add_sink{
+      id="time",
+      cv=function(v)
+      end,
+    }
+    for i=1,4 do
+      matrix:add_sink{
+        id="crow"..i,
+        init=function(mode)
+          crow.output[i].volts = 0
+          if mode == "env" then
+            crow.send("init_dyn_env("..i..")")
+          end
+        end,
+        gate=function(v)
+          crow.output[i].volts = v
+        end,
+        cv=function(v)
+          crow.output[i].volts = v
+        end,
+        env=function(e)
+          crow.send("dyn_env("..i..","..e.level..","..e.decay..")")
+        end,
+      }
+    end
+    
+    matrix:connect("pitch", "crow1")
+    matrix:connect("dyn_env", "crow2")
+    matrix:connect("time", "crow3")
+    matrix:connect("pressure", "crow4")
+  end)
+
   pitch_group = gui.group.new()
   strength_group = gui.group.new{hidden=true}
   time_group = gui.group.new{hidden=true}
@@ -282,15 +369,20 @@ function run_sequencer()
     local s = seqs[2]()
     local s_volts = (strength_mod/127) * util.linlin(0, 127, 0, 8, s)
     local t = seqs[3]()
-    local bpm = util.linlin(0, 127, 15, 300, speed - (time_mod/127) * t)
+    local bpm = util.linlin(0, 127, 75, 150, speed)
+    bpm = bpm - util.linlin(0, 127, 0, 60, (time_mod/127) * t)
     local delay = 60/bpm/4
-    crow.output[1].volts = (p/12) - 5
-    crow.output[2].dyn.time=delay/2
-    crow.output[2].dyn.level=s_volts
-    crow.output[2]()
-    crow.output[3].dyn.time=delay/2
-    crow.output[3].dyn.level=s_volts
-    crow.output[3]()
+    
+    matrix:send("pitch", (p/12) - 5)
+    local s_knob = util.linlin(0, 127, 0, 5, s)
+    matrix:send("strength", s_knob)
+    local t_knob = util.linlin(0, 127, 0, 5, t)
+    matrix:send("time", t_knob)
+    if s_volts > 0 then
+      matrix:send("dyn_gate", s_volts)
+      matrix:send("dyn_env", {level=s_volts, decay=delay})
+    end
+    matrix:update()
     
     local ix = seqs[1].ix
     for y=1,8 do
@@ -301,7 +393,11 @@ function run_sequencer()
     grid_needs_redraw = true
     grid_redraw()
 
-    clock.sleep(delay)
+    clock.sleep(delay/2)
+    matrix:send("dyn_gate", 0)
+    matrix:update()
+    
+    clock.sleep(delay/2)
   end
 end
 
