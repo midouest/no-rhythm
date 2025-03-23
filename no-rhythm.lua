@@ -8,6 +8,7 @@ modmatrix = include("lib/patcher/modmatrix")
 g = grid.connect()
 
 clock_running = false
+clock_stopped = false
 clock_id = nil
 seq_dir = 1
 
@@ -21,8 +22,10 @@ selected_chan = 1
 selected_step = 1
 
 strength_mod = 127
+strength_mod_cv = 0
 speed = 63
 time_mod = 63
+time_mod_cv = 0
 
 interrupt = false
 last_touch = 1
@@ -82,26 +85,46 @@ function init()
     matrix:add_sink{
       id="dyn_reset",
       gate=function(s)
+        if s > 0 then
+          for _, seq in ipairs(seqs) do
+            seq:select(last_touch)
+          end
+          if clock_running then
+            start_clock()
+          end
+        end
       end,
     }
     matrix:add_sink{
       id="stop",
       gate=function(s)
+        -- if s > 0 and clock_running then
+        --   clock_stopped = true
+        --   stop_clock()
+        -- else if s == 0 and clock_stopped then
+        --   clock_stopped = false
+        --   start_clock()
+        -- end
       end,
     }
     matrix:add_sink{
       id="direction",
       gate=function(s)
+        if s > 0 then
+          toggle_direction()
+        end
       end,
     }
     matrix:add_sink{
       id="strength",
       cv=function(v)
+        strength_mod_cv = v
       end,
     }
     matrix:add_sink{
       id="time",
       cv=function(v)
+        time_mod_cv = v
       end,
     }
     for i=1,4 do
@@ -124,11 +147,6 @@ function init()
         end,
       }
     end
-    
-    matrix:connect("pitch", "crow1")
-    matrix:connect("dyn_env", "crow2")
-    matrix:connect("time", "crow3")
-    matrix:connect("pressure", "crow4")
   end)
 
   pitch_group = gui.group.new()
@@ -366,6 +384,7 @@ function run_sequencer()
     end
     
     local p = seqs[1]()
+    local ix = seqs[1].ix
     local s = seqs[2]()
     local s_volts = (strength_mod/127) * util.linlin(0, 127, 0, 8, s)
     local t = seqs[3]()
@@ -382,9 +401,11 @@ function run_sequencer()
       matrix:send("dyn_gate", s_volts)
       matrix:send("dyn_env", {level=s_volts, decay=delay})
     end
+    
+    matrix:send("gate"..ix, 8)
+    
     matrix:update()
     
-    local ix = seqs[1].ix
     for y=1,8 do
       for x=1,4 do
         pressure_buttons[y][x].level = ix==y and 15 or 0
@@ -395,6 +416,7 @@ function run_sequencer()
 
     clock.sleep(delay/2)
     matrix:send("dyn_gate", 0)
+    matrix:send("gate"..ix, 0)
     matrix:update()
     
     clock.sleep(delay/2)
