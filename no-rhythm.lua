@@ -2,7 +2,7 @@
 
 s = require("sequins")
 
-gui = include("lib/gridui")
+gui = include("lib/gridui/gridui")
 
 g = grid.connect()
 
@@ -42,6 +42,7 @@ needs_redraw = true
 function init()
   crow.output[2].action = "pulse(dyn{time=1},dyn{level=8})"
   crow.output[3].action = "ar(0,dyn{time=1},dyn{level=8},'exp')"
+  crow.output[4].slew = 0.1
   
   channel_radio = gui.radio.new{
     x=1,
@@ -175,17 +176,10 @@ function init()
     end
   end
   
-  clock.run(function()
-    while true do
-      clock.sleep(1/15)
-      redraw()
-    end
-  end)
-  
   grid_redraw()
 end
 
-function redraw()
+function refresh()
   if not needs_redraw then
     return
   end
@@ -266,12 +260,24 @@ end
 
 function toggle_clock()
   if not clock_running then
-    clock_running = true
-    clock_id = clock.run(run_sequencer)
+    start_clock()
   else
-    clock_running = false
+    stop_clock()
+  end
+end
+
+function start_clock()
+  if clock_running and clock_id ~= nil then
     clock.cancel(clock_id)
   end
+  clock_running = true
+  clock_id = clock.run(run_sequencer)
+end
+
+function stop_clock()
+  clock_running = false
+  clock.cancel(clock_id)
+  clock_id = nil
 end
 
 function run_sequencer()
@@ -300,6 +306,7 @@ function run_sequencer()
     crow.output[3].dyn.time=delay/2
     crow.output[3].dyn.level=s_volts
     crow.output[3]()
+    
     local ix = seqs[1].ix
     for y=1,8 do
       for x=1,4 do
@@ -308,13 +315,38 @@ function run_sequencer()
     end
     grid_needs_redraw = true
     grid_redraw()
+
     clock.sleep(delay)
   end
 end
 
-function set_pressure_plate(channel, index, value)
-  last_touch = channel
-  pressure[channel][index] = value
+function set_pressure_plate(step, index, value)
+  pressure[step][index] = value
+  
+  if value == 1 then
+    select_step(step)
+    step_radio.state = step
+    last_touch = step
+
+    if interrupt then
+      for _, seq in ipairs(seqs) do
+        seq:select(last_touch)
+      end
+      if clock_running then
+        start_clock()
+      else
+        local p = seqs[1]()
+        seq[1]:select(last_touch)
+        crow.output[1].volts = (p/12) - 5
+      end
+    end
+  end
+  
+  local expr = 0
+  for i, p in ipairs(pressure[last_touch]) do
+    expr = expr | (p<<(4-i))
+  end
+  crow.output[4].volts = 10 * expr / 15
 end
 
 function toggle_direction()
