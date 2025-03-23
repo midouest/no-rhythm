@@ -163,17 +163,16 @@ function init()
     table.insert(pressure_buttons, row)
   end
   
-  widgets = {
-    channel_radio,
-    clock_toggle,
-    direction_toggle,
-    interrupt_toggle,
-    step_radio,
-    pitch_group,
-    strength_group,
-    time_group,
-    pressure_group,
-  }
+  root_group = gui.group.new()
+  root_group:add(channel_radio)
+  root_group:add(clock_toggle)
+  root_group:add(direction_toggle)
+  root_group:add(interrupt_toggle)
+  root_group:add(step_radio)
+  root_group:add(pitch_group)
+  root_group:add(strength_group)
+  root_group:add(time_group)
+  root_group:add(pressure_group)
   
   grid_redraw()
 end
@@ -195,21 +194,14 @@ function grid_redraw()
   grid_needs_redraw = false
   
   g:all(0)
-  
-  for _, widget in ipairs(widgets) do
-    widget:redraw(g)
-  end
-
+  root_group:redraw(g)
   g:refresh()
 end
 
 function g.key(x, y, s)
-  for _, widget in ipairs(widgets) do
-    if widget:key(x, y, s) then
-      grid_needs_redraw = true
-      grid_redraw()
-      return
-    end
+  if root_group:key(x, y, s) then
+    grid_needs_redraw = true
+    grid_redraw()
   end
 end
 
