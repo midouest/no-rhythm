@@ -44,6 +44,10 @@ function init()
   crow.output[3].action = "ar(0,dyn{time=1},dyn{level=8},'exp')"
   crow.output[4].slew = 0.1
   
+  pitch_group = gui.group.new()
+  strength_group = gui.group.new{hidden=true}
+  time_group = gui.group.new{hidden=true}
+  
   channel_radio = gui.radio.new{
     x=1,
     y=1,
@@ -87,18 +91,19 @@ function init()
   }
   
   channel_faders = {}
-  for i = 1, 3 do
+  for i, group in ipairs({pitch_group, strength_group, time_group}) do
     step_faders = {}
     for j = 1, 8 do
-      table.insert(step_faders, gui.hfader.new{
+      local fader = gui.hfader.new{
         x=5,
         y=j,
         initial=seqs[i][j],
-        hidden=i~=1,
         action=function(value)
           select_step_fader(i, j, value)
         end,
-      })
+      }
+      table.insert(step_faders, fader)
+      group:add(fader)
     end
     table.insert(channel_faders, step_faders)
   end
@@ -110,46 +115,50 @@ function init()
       select_pitch(note)
     end,
   }
+  pitch_group:add(pitch_keyboard)
   
   strength_fader = gui.vfader.new{
     x=3,
     initial=strength_mod,
-    hidden=true,
     action=function(value)
       select_strength_mod(value)
     end,
   }
+  strength_group:add(strength_fader)
   
   speed_fader = gui.vfader.new{
     x=2,
     initial=speed,
-    hidden=true,
     action=function(value)
       select_speed(value)
     end,
   }
+  time_group:add(speed_fader)
   
   time_fader = gui.vfader.new{
     x=3,
     initial=time_mod,
-    hidden=true,
     action=function(value)
       select_time_mod(value)
     end,
   }
+  time_group:add(time_fader)
   
+  pressure_group = gui.group.new()
   pressure_buttons = {}
   for y=1,8 do
     local row = {}
     for x=1,4 do
-      table.insert(row, gui.button.new{
+      local button = gui.button.new{
         x=12+x,
         y=y,
         on=7,
         action=function(s)
           set_pressure_plate(y, x, s)
         end
-      })
+      }
+      table.insert(row, button)
+      pressure_group:add(button)
     end
     table.insert(pressure_buttons, row)
   end
@@ -160,21 +169,11 @@ function init()
     direction_toggle,
     interrupt_toggle,
     step_radio,
-    pitch_keyboard,
-    strength_fader,
-    speed_fader,
-    time_fader,
+    pitch_group,
+    strength_group,
+    time_group,
+    pressure_group,
   }
-  for i=1,3 do
-    for j=1,8 do
-      table.insert(widgets, channel_faders[i][j])
-    end
-  end
-  for y=1,8 do
-    for x=1,4 do
-      table.insert(widgets, pressure_buttons[y][x])
-    end
-  end
   
   grid_redraw()
 end
@@ -215,15 +214,9 @@ function g.key(x, y, s)
 end
 
 function select_channel(index)
-  pitch_keyboard.hidden = index ~= 1
-  strength_fader.hidden = index ~= 2
-  speed_fader.hidden = index ~= 3
-  time_fader.hidden = index ~= 3
-  for i=1,3 do
-    for j=1,8 do
-      channel_faders[i][j].hidden = i~=index
-    end
-  end
+  pitch_group.hidden = index ~= 1
+  strength_group.hidden = index ~= 2
+  time_group.hidden = index ~= 3
   selected_chan = index
 end
 
