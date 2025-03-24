@@ -16,9 +16,9 @@ clock_id = nil
 seq_dir = 1
 
 seqs = {
-  s{60,60,60,60,60,60,60,60},
-  s{127,0,0,0,0,0,0,0},
-  s{0,0,0,0,0,0,0,0},
+  s{72,71,69,67,66,64,62,60},
+  s{127,63,63,63,127,63,63,63},
+  s{127,0,127,0,127,0,127,0},
 }
 
 selected_chan = 1
@@ -26,8 +26,8 @@ selected_step = 1
 
 strength_mod = 127
 strength_mod_cv = 0
-speed = 63
-time_mod = 63
+speed = 100
+time_mod = 127
 time_mod_cv = 0
 
 interrupt = false
@@ -55,6 +55,8 @@ function init()
     options=divisions,
     default=2,
   }
+  
+  params:default()
   
   matrix = modmatrix.new()
   
