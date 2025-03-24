@@ -354,7 +354,7 @@ function select_pitch(note)
   channel_faders[1][selected_step].value = note
 end
 
-function select_strength(value)
+function select_strength_mod(value)
   strength_mod = value
 end
 
@@ -390,19 +390,19 @@ end
 
 function run_sequencer()
   while clock_running do
-    if interrupt then
-      for _, p in ipairs(pressure[last_touch]) do
-        if p > 0 then
-          for _, seq in ipairs(seqs) do
-            seq:select(last_touch)
-          end
-          break
-        end
-      end
-    end
-    
     local ix
     for i=1,ppqn do
+      if interrupt then
+        for _, p in ipairs(pressure[last_touch]) do
+          if p > 0 then
+            for _, seq in ipairs(seqs) do
+              seq:select(last_touch)
+            end
+            break
+          end
+        end
+      end
+      
       local div = divisions[params:get("nr_beat_div")]
       local cycle = ppqn//div
       local half_cycle = cycle//2
@@ -411,7 +411,7 @@ function run_sequencer()
         local pitch = seqs[1]()
         ix = seqs[1].ix
 
-        local strength = seqs[2]()
+        local strength = (strength_mod/127) * seqs[2]()
 
         local time = seqs[3]()
         local base_bpm = util.linlin(0, 127, 60, 300, speed)
@@ -468,7 +468,7 @@ function set_pressure_plate(step, index, value)
       else
         local p = seqs[1]()
         seq[1]:select(last_touch)
-        crow.output[1].volts = (p/12) - 5
+        -- crow.output[1].volts = (p/12) - 5
       end
     end
   end
@@ -477,7 +477,7 @@ function set_pressure_plate(step, index, value)
   for i, p in ipairs(pressure[last_touch]) do
     expr = expr | (p<<(4-i))
   end
-  crow.output[4].volts = 10 * expr / 15
+  -- crow.output[4].volts = 10 * expr / 15
 end
 
 function toggle_direction()
