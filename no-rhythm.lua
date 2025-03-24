@@ -476,9 +476,13 @@ function set_pressure_plate(step, index, value)
       if clock_running then
         start_clock()
       else
-        local p = seqs[1]()
+        local pitch = seqs[1]()
+        local strength = seqs[2]()
+        local time = seqs[3]()
         seq[1]:select(last_touch)
-        matrix:send("pitch", (p/12) - 5)
+        matrix:send("pitch", (pitch/12) - 5)
+        matrix:send("strength", util.linlin(0, 127, 0, 5, strength))
+        matrix:send("time", util.linlin(0, 127, 0, 5, time))
       end
     end
     matrix:send("touch_gate", 8)
