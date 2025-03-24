@@ -44,111 +44,116 @@ grid_needs_redraw = true
 needs_redraw = true
 
 function init()
-  norns.crow.loadscript("no-rhythm.lua", false, function()
-    matrix = modmatrix.new()
-    
-    matrix:add_source{
-      id="pitch",
-      type="cv",
-    }
-    matrix:add_source{
-      id="strength",
-      type="cv",
-    }
-    matrix:add_source{
-      id="time",
-      type="cv",
-    }
-    matrix:add_source{
-      id="pressure",
-      type="cv",
-    }
-    matrix:add_source{
-      id="touch_gate",
-      type="gate",
-    }
-    matrix:add_source{
-      id="dyn_gate",
-      type="gate",
-    }
-    matrix:add_source{
-      id="dyn_env",
-      type="env",
-    }
-    for i = 1, 8 do
-      matrix:add_source{
-        id="gate"..i,
-        type="gate",
-      }
-    end
+  matrix = modmatrix.new()
   
+  matrix:add_source{
+    id="pitch",
+    type="cv",
+  }
+  matrix:add_source{
+    id="strength",
+    type="cv",
+  }
+  matrix:add_source{
+    id="time",
+    type="cv",
+  }
+  matrix:add_source{
+    id="pressure",
+    type="cv",
+  }
+  matrix:add_source{
+    id="touch_gate",
+    type="gate",
+  }
+  matrix:add_source{
+    id="dyn_gate",
+    type="gate",
+  }
+  matrix:add_source{
+    id="dyn_env",
+    type="env",
+  }
+  for i = 1, 8 do
+    matrix:add_source{
+      id="gate"..i,
+      type="gate",
+    }
+  end
+
+  matrix:add_sink{
+    id="dyn_reset",
+    gate=function(s)
+      if s > 0 then
+        for _, seq in ipairs(seqs) do
+          seq:select(last_touch)
+        end
+        if clock_running then
+          start_clock()
+        end
+      end
+    end,
+  }
+  matrix:add_sink{
+    id="stop",
+    gate=function(s)
+      -- if s > 0 and clock_running then
+      --   clock_stopped = true
+      --   stop_clock()
+      -- else if s == 0 and clock_stopped then
+      --   clock_stopped = false
+      --   start_clock()
+      -- end
+    end,
+  }
+  matrix:add_sink{
+    id="direction",
+    gate=function(s)
+      if s > 0 then
+        toggle_direction()
+        direction_toggle.state = 1 - direction_toggle.state
+      end
+    end,
+  }
+  matrix:add_sink{
+    id="strength",
+    cv=function(v)
+      strength_mod_cv = v
+    end,
+  }
+  matrix:add_sink{
+    id="time",
+    cv=function(v)
+      time_mod_cv = v
+    end,
+  }
+  for i=1,4 do
     matrix:add_sink{
-      id="dyn_reset",
-      gate=function(s)
-        if s > 0 then
-          for _, seq in ipairs(seqs) do
-            seq:select(last_touch)
-          end
-          if clock_running then
-            start_clock()
-          end
+      id="crow"..i,
+      init=function(mode)
+        crow.output[i].volts = 0
+        if mode == "env" then
+          crow.output[i].action = "ar(0, dyn{decay=1}, dyn{level=8}, 'log')"
         end
       end,
-    }
-    matrix:add_sink{
-      id="stop",
-      gate=function(s)
-        -- if s > 0 and clock_running then
-        --   clock_stopped = true
-        --   stop_clock()
-        -- else if s == 0 and clock_stopped then
-        --   clock_stopped = false
-        --   start_clock()
-        -- end
+      gate=function(v)
+        crow.output[i].volts = v
       end,
-    }
-    matrix:add_sink{
-      id="direction",
-      gate=function(s)
-        if s > 0 then
-          toggle_direction()
-          direction_toggle.state = 1 - direction_toggle.state
-        end
-      end,
-    }
-    matrix:add_sink{
-      id="strength",
       cv=function(v)
-        strength_mod_cv = v
+        crow.output[i].volts = v
+      end,
+      env=function(e)
+        crow.output[i].dyn.level = e.level
+        crow.output[i].dyn.decay = e.decay
+        crow.output[i]()
       end,
     }
-    matrix:add_sink{
-      id="time",
-      cv=function(v)
-        time_mod_cv = v
-      end,
-    }
-    for i=1,4 do
-      matrix:add_sink{
-        id="crow"..i,
-        init=function(mode)
-          crow.output[i].volts = 0
-          if mode == "env" then
-            crow.send("init_dyn_env("..i..")")
-          end
-        end,
-        gate=function(v)
-          crow.output[i].volts = v
-        end,
-        cv=function(v)
-          crow.output[i].volts = v
-        end,
-        env=function(e)
-          crow.send("dyn_env("..i..","..e.level..","..e.decay..")")
-        end,
-      }
-    end
-  end)
+  end
+  
+  matrix:connect("pitch", "crow1")
+  matrix:connect("time", "crow2")
+  matrix:connect("dyn_gate", "crow3")
+  matrix:connect("dyn_env", "crow4")
 
   pitch_group = gui.group.new()
   strength_group = gui.group.new{hidden=true}
