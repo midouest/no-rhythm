@@ -112,6 +112,7 @@ function init()
       gate=function(s)
         if s > 0 then
           toggle_direction()
+          direction_toggle.state = 1 - direction_toggle.state
         end
       end,
     }
