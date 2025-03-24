@@ -476,16 +476,21 @@ function set_pressure_plate(step, index, value)
       else
         local p = seqs[1]()
         seq[1]:select(last_touch)
-        -- crow.output[1].volts = (p/12) - 5
+        matrix:send("pitch", (p/12) - 5)
       end
     end
+    matrix:send("touch_gate", 8)
+  else
+    matrix:send("touch_gate", 0)
   end
   
   local expr = 0
   for i, p in ipairs(pressure[last_touch]) do
     expr = expr | (p<<(4-i))
   end
-  -- crow.output[4].volts = 10 * expr / 15
+
+  matrix:send("pressure", 10 * expr / 15)
+  matrix:update()
 end
 
 function toggle_direction()
