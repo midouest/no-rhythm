@@ -386,6 +386,12 @@ function stop_clock()
   clock_running = false
   clock.cancel(clock_id)
   clock_id = nil
+  
+  matrix:send("dyn_gate", 0)
+  for i=1,8 do
+    matrix:send("gate"..i, 0)
+  end
+  matrix:update()
 end
 
 function run_sequencer()
@@ -417,9 +423,11 @@ function run_sequencer()
         local base_bpm = util.linlin(0, 127, 60, 300, speed)
         local bpm_mod = util.linlin(0, 127, 0, base_bpm/2, (time_mod/127) * time)
         local bpm = base_bpm - bpm_mod
-        params:set("clock_tempo", bpm)
+        if params:string("clock_source") == "internal" then
+          params:set("clock_tempo", bpm)
+        end
         
-        local beat_sec = clock.get_beat_sec()
+        local beat_sec = 60/bpm
         local delay = beat_sec/div
         
         matrix:send("pitch", (pitch/12) - 5)
