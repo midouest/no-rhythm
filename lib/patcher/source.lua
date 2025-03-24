@@ -5,6 +5,7 @@ function Source.new(opts)
   local obj = {}
   obj.id = opts.id
   obj.type = opts.type
+  obj.transform = opts.transform
   obj.state = nil
   obj.dirty = false
   return setmetatable(obj, Source)

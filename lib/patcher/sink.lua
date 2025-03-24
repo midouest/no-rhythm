@@ -5,7 +5,10 @@ function Sink.new(opts)
   local obj = {}
   obj.id = opts.id
   obj.type = opts.type
+  obj.external = opts.external or false
   obj.init = opts.init
+  obj.connected = opts.connected
+  obj.disconnected = opts.disconnected
   obj.gate = opts.gate
   obj.cv = opts.cv
   obj.env = opts.env

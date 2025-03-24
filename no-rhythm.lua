@@ -25,10 +25,12 @@ selected_chan = 1
 selected_step = 1
 
 strength_mod = 127
-strength_mod_cv = 0
+strength_cv = 0
+strength_normalled = true
 speed = 100
 time_mod = 127
-time_mod_cv = 0
+time_cv = 0
+time_normalled = true
 
 interrupt = false
 last_touch = 1
@@ -63,18 +65,30 @@ function init()
   matrix:add_source{
     id="pitch",
     type="cv",
+    transform=function(v)
+      return (v/12)-5
+    end
   }
   matrix:add_source{
     id="strength",
     type="cv",
+    transform=function(v)
+      return util.linlin(0, 127, 0, 5, v)
+    end
   }
   matrix:add_source{
     id="time",
     type="cv",
+    transform=function(v)
+      return util.linlin(0, 127, 0, 5, v)
+    end
   }
   matrix:add_source{
     id="pressure",
     type="cv",
+    transform=function(v)
+      return 10*v/15
+    end
   }
   matrix:add_source{
     id="touch_gate",
@@ -131,19 +145,32 @@ function init()
   }
   matrix:add_sink{
     id="strength",
+    connected=function()
+      strength_normalled = false
+    end,
+    disconnected=function()
+      strength_normalled = true
+    end,
     cv=function(v)
-      strength_mod_cv = v
+      strength_cv = v
     end,
   }
   matrix:add_sink{
     id="time",
+    connected=function()
+      time_normalled = false
+    end,
+    disconnected=function()
+      time_normalled = true
+    end,
     cv=function(v)
-      time_mod_cv = v
+      time_cv = v
     end,
   }
   for i=1,4 do
     matrix:add_sink{
       id="crow"..i,
+      external=true,
       init=function(mode)
         crow.output[i].volts = 0
         if mode == "env" then
@@ -416,32 +443,46 @@ function run_sequencer()
       local half_cycle = cycle//2
       
       if (i-1)%cycle==0 then
-        local pitch = seqs[1]()
+        local pitch_internal = seqs[1]()
+        local strength_internal = seqs[2]()
+        local time_internal = seqs[3]()
+        matrix:send("pitch", pitch_internal)
+        matrix:send("strength", strength_internal)
+        matrix:send("time", time_internal)
+        matrix:update()
+
         ix = seqs[1].ix
 
-        local strength = (strength_mod/127) * seqs[2]()
+        local strength = strength_internal
+        if not strength_normalled then
+          strength = strength_cv
+        end
+        strength = (strength_mod/127) * strength
 
-        local time = seqs[3]()
+        local time = time_internal
+        if not time_normalled then
+          print(time_cv)
+          time = time_cv
+        end
+        time = (time_mod/127) * time
+
         local base_bpm = util.linlin(0, 127, 60, 300, speed)
-        local bpm_mod = util.linlin(0, 127, 0, base_bpm/2, (time_mod/127) * time)
+        local bpm_mod = util.linlin(0, 127, 0, base_bpm/2, time)
         local bpm = base_bpm - bpm_mod
         if params:string("clock_source") == "internal" then
           params:set("clock_tempo", bpm)
         end
-        
+
         local beat_sec = 60/bpm
         local delay = beat_sec/div
         
-        matrix:send("pitch", (pitch/12) - 5)
-        matrix:send("strength", util.linlin(0, 127, 0, 5, strength))
-        matrix:send("time", util.linlin(0, 127, 0, 5, time))
         if strength > 0 then
           local dyn_gate = util.linlin(0, 127, 0, 8, strength)
           matrix:send("dyn_gate", dyn_gate)
           matrix:send("dyn_env", {level=dyn_gate, decay=delay})
           matrix:send("gate"..ix, 8)
+          matrix:update()
         end
-        matrix:update()
         for y=1,8 do
           for x=1,4 do
             pressure_buttons[y][x].level = ix==y and 15 or 0
@@ -479,10 +520,12 @@ function set_pressure_plate(step, index, value)
         local pitch = seqs[1]()
         local strength = seqs[2]()
         local time = seqs[3]()
-        seq[1]:select(last_touch)
-        matrix:send("pitch", (pitch/12) - 5)
-        matrix:send("strength", util.linlin(0, 127, 0, 5, strength))
-        matrix:send("time", util.linlin(0, 127, 0, 5, time))
+        for i=1,3 do
+          seq[i]:select(last_touch)
+        end
+        matrix:send("pitch", pitch)
+        matrix:send("strength", strength)
+        matrix:send("time", time)
       end
     end
     matrix:send("touch_gate", 8)
@@ -495,7 +538,7 @@ function set_pressure_plate(step, index, value)
     expr = expr | (p<<(4-i))
   end
 
-  matrix:send("pressure", 10 * expr / 15)
+  matrix:send("pressure", expr)
   matrix:update()
 end
 
