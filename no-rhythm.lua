@@ -7,6 +7,9 @@ gui = include("lib/gridui/gridui")
 modmatrix = include("lib/patcher/modmatrix")
 g = grid.connect()
 
+ppqn = 96
+divisions = {1, 2, 4}
+
 clock_running = false
 clock_stopped = false
 clock_id = nil
@@ -44,6 +47,15 @@ grid_needs_redraw = true
 needs_redraw = true
 
 function init()
+  params:add_separator("no-rhythm")
+  params:add{
+    id="nr_beat_div",
+    name="beat div",
+    type="option",
+    options=divisions,
+    default=2,
+  }
+  
   matrix = modmatrix.new()
   
   matrix:add_source{
@@ -389,43 +401,53 @@ function run_sequencer()
       end
     end
     
-    local p = seqs[1]()
-    local ix = seqs[1].ix
-    local s = seqs[2]()
-    local s_volts = (strength_mod/127) * util.linlin(0, 127, 0, 8, s)
-    local t = seqs[3]()
-    local bpm = util.linlin(0, 127, 75, 150, speed)
-    bpm = bpm - util.linlin(0, 127, 0, 60, (time_mod/127) * t)
-    local delay = 60/bpm/4
-    
-    matrix:send("pitch", (p/12) - 5)
-    local s_knob = util.linlin(0, 127, 0, 5, s)
-    matrix:send("strength", s_knob)
-    local t_knob = util.linlin(0, 127, 0, 5, t)
-    matrix:send("time", t_knob)
-    if s_volts > 0 then
-      matrix:send("dyn_gate", s_volts)
-      matrix:send("dyn_env", {level=s_volts, decay=delay})
-    end
-    
-    matrix:send("gate"..ix, 8)
-    
-    matrix:update()
-    
-    for y=1,8 do
-      for x=1,4 do
-        pressure_buttons[y][x].level = ix==y and 15 or 0
-      end
-    end
-    grid_needs_redraw = true
-    grid_redraw()
+    local ix
+    for i=1,ppqn do
+      local div = divisions[params:get("nr_beat_div")]
+      local cycle = ppqn//div
+      local half_cycle = cycle//2
+      
+      if (i-1)%cycle==0 then
+        local pitch = seqs[1]()
+        ix = seqs[1].ix
 
-    clock.sleep(delay/2)
-    matrix:send("dyn_gate", 0)
-    matrix:send("gate"..ix, 0)
-    matrix:update()
-    
-    clock.sleep(delay/2)
+        local strength = seqs[2]()
+
+        local time = seqs[3]()
+        local base_bpm = util.linlin(0, 127, 60, 300, speed)
+        local bpm_mod = util.linlin(0, 127, 0, base_bpm/2, (time_mod/127) * time)
+        local bpm = base_bpm - bpm_mod
+        params:set("clock_tempo", bpm)
+        
+        local beat_sec = clock.get_beat_sec()
+        local delay = beat_sec/div
+        
+        matrix:send("pitch", (pitch/12) - 5)
+        matrix:send("strength", util.linlin(0, 127, 0, 5, strength))
+        matrix:send("time", util.linlin(0, 127, 0, 5, time))
+        if strength > 0 then
+          local dyn_gate = util.linlin(0, 127, 0, 8, strength)
+          matrix:send("dyn_gate", dyn_gate)
+          matrix:send("dyn_env", {level=dyn_gate, decay=delay})
+          matrix:send("gate"..ix, 8)
+        end
+        matrix:update()
+        for y=1,8 do
+          for x=1,4 do
+            pressure_buttons[y][x].level = ix==y and 15 or 0
+          end
+        end
+        grid_needs_redraw = true
+        grid_redraw()
+      elseif (i+half_cycle-1)%cycle==0 then
+        matrix:send("dyn_gate", 0)
+        if ix ~= nil then
+          matrix:send("gate"..ix, 0)
+        end
+        matrix:update()
+      end
+      clock.sync(1/ppqn)
+    end
   end
 end
 
