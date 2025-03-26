@@ -11,7 +11,6 @@ ppqn = 96
 divisions = {1, 2, 4}
 
 clock_running = false
-clock_stopped = false
 clock_id = nil
 seq_dir = 1
 
@@ -63,6 +62,10 @@ function init()
   matrix = modmatrix.new()
   
   matrix:add_source{
+    id="clock",
+    type="gate",
+  }
+  matrix:add_source{
     id="pitch",
     type="cv",
     transform=function(v)
@@ -110,6 +113,16 @@ function init()
   end
 
   matrix:add_sink{
+    id="clock",
+    gate=function(s)
+      if s > 0 then
+        step_hi()
+      else
+        step_lo()
+      end
+    end,
+  }
+  matrix:add_sink{
     id="dyn_reset",
     gate=function(s)
       if s > 0 then
@@ -125,13 +138,6 @@ function init()
   matrix:add_sink{
     id="stop",
     gate=function(s)
-      -- if s > 0 and clock_running then
-      --   clock_stopped = true
-      --   stop_clock()
-      -- else if s == 0 and clock_stopped then
-      --   clock_stopped = false
-      --   start_clock()
-      -- end
     end,
   }
   matrix:add_sink{
@@ -190,6 +196,10 @@ function init()
       end,
     }
   end
+  
+  matrix:normalize("time", "time")
+  matrix:normalize("strength", "strength")
+  matrix:normalize("clock", "clock")
   
   matrix:connect("pitch", "crow1")
   matrix:connect("time", "crow2")
@@ -408,7 +418,7 @@ function start_clock()
     clock.cancel(clock_id)
   end
   clock_running = true
-  clock_id = clock.run(run_sequencer)
+  clock_id = clock.run(run_clock)
 end
 
 function stop_clock()
@@ -423,83 +433,85 @@ function stop_clock()
   matrix:update()
 end
 
-function run_sequencer()
+function run_clock()
   while clock_running do
-    local ix
     for i=1,ppqn do
-      if interrupt then
-        for _, p in ipairs(pressure[last_touch]) do
-          if p > 0 then
-            for _, seq in ipairs(seqs) do
-              seq:select(last_touch)
-            end
-            break
-          end
-        end
-      end
-      
       local div = divisions[params:get("nr_beat_div")]
       local cycle = ppqn//div
       local half_cycle = cycle//2
       
       if (i-1)%cycle==0 then
-        local pitch_internal = seqs[1]()
-        local strength_internal = seqs[2]()
-        local time_internal = seqs[3]()
-        matrix:send("pitch", pitch_internal)
-        matrix:send("strength", strength_internal)
-        matrix:send("time", time_internal)
+        matrix:send("clock", 1)
         matrix:update()
-
-        ix = seqs[1].ix
-
-        local strength = strength_internal
-        if not strength_normalled then
-          strength = strength_cv
-        end
-        strength = (strength_mod/127) * strength
-
-        local time = time_internal
-        if not time_normalled then
-          print(time_cv)
-          time = time_cv
-        end
-        time = (time_mod/127) * time
-
-        local base_bpm = util.linlin(0, 127, 60, 300, speed)
-        local bpm_mod = util.linlin(0, 127, 0, base_bpm/2, time)
-        local bpm = base_bpm - bpm_mod
-        if params:string("clock_source") == "internal" then
-          params:set("clock_tempo", bpm)
-        end
-
-        local beat_sec = 60/bpm
-        local delay = beat_sec/div
-        
-        if strength > 0 then
-          local dyn_gate = util.linlin(0, 127, 0, 8, strength)
-          matrix:send("dyn_gate", dyn_gate)
-          matrix:send("dyn_env", {level=dyn_gate, decay=delay})
-          matrix:send("gate"..ix, 8)
-          matrix:update()
-        end
-        for y=1,8 do
-          for x=1,4 do
-            pressure_buttons[y][x].level = ix==y and 15 or 0
-          end
-        end
-        grid_needs_redraw = true
-        grid_redraw()
       elseif (i+half_cycle-1)%cycle==0 then
-        matrix:send("dyn_gate", 0)
-        if ix ~= nil then
-          matrix:send("gate"..ix, 0)
-        end
+        matrix:send("clock", 0)
         matrix:update()
       end
       clock.sync(1/ppqn)
     end
   end
+end
+
+function step_hi()
+  if interrupt then
+    for _, p in ipairs(pressure[last_touch]) do
+      if p > 0 then
+        for _, seq in ipairs(seqs) do
+          seq:select(last_touch)
+        end
+        break
+      end
+    end
+  end
+  
+  local div = divisions[params:get("nr_beat_div")]
+  local cycle = ppqn//div
+  local half_cycle = cycle//2
+
+  local pitch_internal = seqs[1]()
+  local strength_internal = seqs[2]()
+  local time_internal = seqs[3]()
+  matrix:send("pitch", pitch_internal)
+  matrix:send("strength", strength_internal)
+  matrix:send("time", time_internal)
+  matrix:update()
+
+  local ix = seqs[1].ix
+
+  local strength = (strength_mod/127) * strength_cv
+  local time = (time_mod/127) * time_cv
+
+  local base_bpm = util.linlin(0, 127, 60, 300, speed)
+  local bpm_mod = util.linlin(0, 127, 0, base_bpm/2, time)
+  local bpm = base_bpm - bpm_mod
+  if params:string("clock_source") == "internal" then
+    params:set("clock_tempo", bpm)
+  end
+
+  local beat_sec = 60/bpm
+  local delay = beat_sec/div
+  
+  if strength > 0 then
+    local dyn_gate = util.linlin(0, 127, 0, 8, strength)
+    matrix:send("dyn_gate", dyn_gate)
+    matrix:send("dyn_env", {level=dyn_gate, decay=delay})
+    matrix:send("gate"..ix, 8)
+    matrix:update()
+  end
+  for y=1,8 do
+    for x=1,4 do
+      pressure_buttons[y][x].level = ix==y and 15 or 0
+    end
+  end
+  grid_needs_redraw = true
+  grid_redraw()
+end
+
+function step_lo()
+  local ix = seqs[1].ix
+  matrix:send("dyn_gate", 0)
+  matrix:send("gate"..ix, 0)
+  matrix:update()
 end
 
 function set_pressure_plate(step, index, value)

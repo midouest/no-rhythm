@@ -11,6 +11,7 @@ function ModMatrix.new()
   obj.sink_order = {}
   obj.connection_order = {}
   obj.matrix = {}
+  obj.normal = {}
   return setmetatable(obj, ModMatrix)
 end
 
@@ -25,6 +26,13 @@ function ModMatrix:add_sink(opts)
   table.insert(self.sink_order, sink.id)
   self.matrix[sink.id] = {}
   self.connection_order[sink.id] = {}
+end
+
+function ModMatrix:normalize(source_id, sink_id)
+  local source = self.sources[source_id]
+  local sink = self.sinks[sink_id]
+  assert(sink:connect(source.type), "invalid normal connection")
+  self.normal[sink.id] = source.id
 end
 
 function ModMatrix:connect(source_id, sink_id)
@@ -74,6 +82,17 @@ function ModMatrix:update()
     local sink = self.sinks[sink_id]
     local source_ids = self.matrix[sink.id]
     local values = {}
+    local normal_source_id = self.normal[sink.id]
+    
+    local broken = false
+    for _, _ in pairs(source_ids) do
+      broken = true
+      break
+    end
+    if not broken and normal_source_id then
+      source_ids = {[normal_source_id]=true}
+    end
+    
     for source_id, _ in pairs(source_ids) do
       local source = self.sources[source_id]
       local value = source:read()
@@ -84,6 +103,7 @@ function ModMatrix:update()
         table.insert(values, value)
       end
     end
+
     if #values > 0 then
       sink:receive(values)
     end
