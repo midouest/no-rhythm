@@ -203,8 +203,8 @@ function init()
   
   matrix:connect("pitch", "crow1")
   matrix:connect("time", "crow2")
-  matrix:connect("dyn_gate", "crow3")
-  matrix:connect("dyn_env", "crow4")
+  matrix:connect("dyn_env", "crow3")
+  matrix:connect("touch_gate", "crow4")
 
   pitch_group = gui.group.new()
   strength_group = gui.group.new{hidden=true}
@@ -420,6 +420,8 @@ end
 function start_clock()
   if clock_running and clock_id ~= nil then
     clock.cancel(clock_id)
+    matrix:send("clock", 0)
+    matrix:update()
   end
   clock_running = true
   clock_id = clock.run(run_clock)
@@ -519,13 +521,23 @@ function step_lo()
 end
 
 function set_pressure_plate(step, index, value)
+  -- TODO: param to allow retrig on each pressure button?
+  
+  local prev_pressure = false
+  for _, p in ipairs(pressure[step]) do
+    if p > 0 then
+      prev_pressure = true
+      break
+    end
+  end
+  
   pressure[step][index] = value
   
-  if value == 1 then
+  if value == 1 and (step ~= last_touch or not prev_pressure) then
     select_step(step)
     step_radio.state = step
     last_touch = step
-
+  
     if interrupt then
       for _, seq in ipairs(seqs) do
         seq:select(last_touch)
@@ -537,7 +549,7 @@ function set_pressure_plate(step, index, value)
         local strength = seqs[2]()
         local time = seqs[3]()
         for i=1,3 do
-          seq[i]:select(last_touch)
+          seqs[i]:select(last_touch)
         end
         matrix:send("pitch", pitch)
         matrix:send("strength", strength)
@@ -546,16 +558,29 @@ function set_pressure_plate(step, index, value)
     end
     matrix:send("touch_gate", 8)
   else
-    matrix:send("touch_gate", 0)
+    local release = true
+    for _, p in ipairs(pressure[last_touch]) do
+      if p > 0 then
+        release = false
+        break
+      end
+    end
+    if release then
+      matrix:send("touch_gate", 0)
+    end
   end
   
+  local expr = get_pressure()
+  matrix:send("pressure", expr)
+  matrix:update()
+end
+
+function get_pressure()
   local expr = 0
   for i, p in ipairs(pressure[last_touch]) do
     expr = expr | (p<<(4-i))
   end
-
-  matrix:send("pressure", expr)
-  matrix:update()
+  return expr
 end
 
 function toggle_direction()
