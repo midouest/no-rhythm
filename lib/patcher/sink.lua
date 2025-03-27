@@ -6,7 +6,7 @@ function Sink.new(opts)
   obj.id = opts.id
   obj.type = opts.type
   obj.external = opts.external or false
-  obj.init = opts.init
+  obj._init = opts.init
   obj.connected = opts.connected
   obj.disconnected = opts.disconnected
   obj.gate = opts.gate
@@ -22,6 +22,12 @@ function Sink.new(opts)
   return setmetatable(obj, Sink)
 end
 
+function Sink:init()
+  if self._init then
+    self._init(self.mode)
+  end
+end
+
 function Sink:can_connect(source_type)
   return type(self[source_type]) == "function"
 end
@@ -33,9 +39,7 @@ function Sink:connect(source_type)
   
   if source_type ~= self.mode then
     self.mode = source_type
-    if self.init then
-      self.init(self.mode)
-    end
+    self:init()
   end
   
   return true

@@ -15,6 +15,12 @@ function ModMatrix.new()
   return setmetatable(obj, ModMatrix)
 end
 
+function ModMatrix:init()
+  for _, sink in pairs(self.sinks) do
+    sink:init()
+  end
+end
+
 function ModMatrix:add_source(opts)
   local source = Source.new(opts)
   self.sources[source.id] = source

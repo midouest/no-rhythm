@@ -339,6 +339,10 @@ function init()
   grid_redraw()
 end
 
+function norns.crow.add(id, name, dev)
+  matrix:init()
+end
+
 function refresh()
   if not needs_redraw then
     return
