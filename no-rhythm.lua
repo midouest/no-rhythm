@@ -24,6 +24,7 @@ seqs = {
 
 selected_chan = 1
 selected_step = 1
+active_step = 1
 
 strength_mod = 127
 strength_cv = 0
@@ -452,9 +453,6 @@ function stop_clock()
   clock_id = nil
   
   matrix:send("dyn_gate", 0)
-  for i=1,8 do
-    matrix:send("gate"..i, 0)
-  end
   matrix:update()
 end
 
@@ -496,12 +494,16 @@ function step_hi()
   local pitch_internal = seqs[1]()
   local strength_internal = seqs[2]()
   local time_internal = seqs[3]()
+  local ix = seqs[1].ix
   matrix:send("pitch", pitch_internal)
   matrix:send("strength", strength_internal)
   matrix:send("time", time_internal)
+  matrix:send("gate"..ix, 8)
+  if ix ~= active_step then
+    matrix:send("gate"..active_step, 0)
+  end
+  active_step = ix
   matrix:update()
-
-  local ix = seqs[1].ix
 
   local strength = (strength_mod/127) * strength_cv
   local time = (time_mod/127) * time_cv
@@ -520,7 +522,6 @@ function step_hi()
     local dyn_gate = util.linlin(0, 127, 0, 8, strength)
     matrix:send("dyn_gate", dyn_gate)
     matrix:send("dyn_env", {level=dyn_gate, decay=delay})
-    matrix:send("gate"..ix, 8)
     matrix:update()
   end
   for y=1,8 do
@@ -533,9 +534,7 @@ function step_hi()
 end
 
 function step_lo()
-  local ix = seqs[1].ix
   matrix:send("dyn_gate", 0)
-  matrix:send("gate"..ix, 0)
   matrix:update()
 end
 
@@ -567,9 +566,15 @@ function set_pressure_plate(step, index, value)
         local pitch = seqs[1]()
         local strength = seqs[2]()
         local time = seqs[3]()
+        local ix = seqs[1].ix
         for i=1,3 do
           seqs[i]:select(last_touch)
         end
+        matrix:send("gate"..ix, 8)
+        if ix ~= active_step then
+          matrix:send("gate"..active_step, 0)
+        end
+        active_step = ix
         matrix:send("pitch", pitch)
         matrix:send("strength", strength)
         matrix:send("time", time)
