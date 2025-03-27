@@ -10,6 +10,8 @@ g = grid.connect()
 ppqn = 96
 divisions = {1, 2, 4}
 
+clock_started = false
+clock_stopped = false
 clock_running = false
 clock_id = nil
 seq_dir = 1
@@ -138,6 +140,15 @@ function init()
   matrix:add_sink{
     id="stop",
     gate=function(s)
+      if s > 0 and clock_running then
+        clock_stopped = true
+        stop_clock()
+      elseif s == 0 and clock_stopped then
+        clock_stopped = false
+        if clock_started then
+          start_clock()
+        end
+      end
     end,
   }
   matrix:add_sink{
@@ -410,26 +421,34 @@ function select_time_mod(value)
 end
 
 function toggle_clock()
-  if not clock_running then
+  if not clock_started then
+    clock_started = true
     start_clock()
   else
+    clock_started = false
     stop_clock()
   end
 end
 
 function start_clock()
+  clock_running = true
+  if clock_stopped then
+    return
+  end
+
   if clock_running and clock_id ~= nil then
     clock.cancel(clock_id)
     matrix:send("clock", 0)
     matrix:update()
   end
-  clock_running = true
   clock_id = clock.run(run_clock)
 end
 
 function stop_clock()
   clock_running = false
-  clock.cancel(clock_id)
+  if clock_id ~= nil then
+    clock.cancel(clock_id)
+  end
   clock_id = nil
   
   matrix:send("dyn_gate", 0)
@@ -542,7 +561,7 @@ function set_pressure_plate(step, index, value)
       for _, seq in ipairs(seqs) do
         seq:select(last_touch)
       end
-      if clock_running then
+      if clock_running and not clock_stopped then
         start_clock()
       else
         local pitch = seqs[1]()
