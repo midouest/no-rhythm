@@ -37,29 +37,65 @@ end
 function ModMatrix:normalize(source_id, sink_id)
   local source = self.sources[source_id]
   local sink = self.sinks[sink_id]
-  assert(sink:connect(source.type), "invalid normal connection")
+  local mode = self:connection_type(sink.id, source.id)
+  assert(mode ~= nil, "invalid normal connection")
+  source:set_mode(mode)
+  sink:set_mode(mode)
   self.normal[sink.id] = source.id
 end
 
-function ModMatrix:connect(source_id, sink_id)
+function ModMatrix:connection_type(source_id, sink_id)
   local source = self.sources[source_id]
   local sink = self.sinks[sink_id]
-  if not sink:connect(source.type) then
+  
+  local source_types = source.type
+  if type(source_types) == "string" then
+    source_types = {source_types}
+  end
+
+  local sink_types = {"gate","cv", "env"}
+  for _, sink_type in ipairs({"gate", "cv", "env"}) do
+    if type(sink[sink_type]) == "function" then
+      for _, source_type in ipairs(source_types) do
+        if source_type == sink_type then
+          return source_type
+        end
+      end
+    end
+  end
+end
+
+function ModMatrix:connect(source_id, sink_id)
+  local mode = self:connection_type(source_id, sink_id)
+  if mode == nil then
     return false
   end
 
+  local source = self.sources[source_id]
+  local sink = self.sinks[sink_id]
   if self.matrix[sink.id][source.id] then
     return true
   end
 
-  self.matrix[sink.id][source.id] = true
-  local prev_connections = #self.connection_order
-  table.insert(self.connection_order[sink.id], source.id)
-  if prev_connections == 0 then
-    if sink.connected then
-      sink.connected()
+  if mode ~= source.mode then
+    for other_sink_id, other_conns in pairs(self.matrix) do
+      if other_conns[source.id] then
+        self:disconnect(source.id, other_sink_id)
+      end
     end
   end
+  if mode ~= sink.mode then
+    for source_id, _ in pairs(self.matrix[sink.id]) do
+      self.matrix[sink.id] = {}
+      self.connection_order[sink.id] = {}
+    end
+  end
+
+  source:set_mode(mode)
+  sink:set_mode(mode)
+
+  self.matrix[sink.id][source.id] = true
+  table.insert(self.connection_order[sink.id], source.id)
   self:update_sink(sink.id)
   return true
 end
@@ -77,12 +113,17 @@ function ModMatrix:disconnect(source_id, sink_id)
   end
 
   if prev_connections > 0 and #self.connection_order[sink.id] == 0 then
-    if sink.disconnected then
-      sink.disconnected()
-    end
     sink:receive({0})
   else
     self:update_sink(sink.id)
+  end
+end
+
+function ModMatrix:toggle(source_id, sink_id)
+  if self.matrix[sink_id][source_id] then
+    self:disconnect(source_id, sink_id)
+  else
+    self:connect(source_id, sink_id)
   end
 end
 

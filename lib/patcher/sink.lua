@@ -6,43 +6,23 @@ function Sink.new(opts)
   obj.id = opts.id
   obj.type = opts.type
   obj.external = opts.external or false
-  obj._init = opts.init
-  obj.connected = opts.connected
-  obj.disconnected = opts.disconnected
+  obj.init = opts.init
   obj.gate = opts.gate
   obj.cv = opts.cv
   obj.env = opts.env
-  for _, key in ipairs({"gate", "cv", "env"}) do
-    if obj[key] then
-      obj.mode = key
-      break
-    end
-  end
+  obj.mode = nil
   obj.state = nil
   return setmetatable(obj, Sink)
 end
 
-function Sink:init()
-  if self._init then
-    self._init(self.mode)
+function Sink:set_mode(source_type)
+  local prev_mode = self.mode
+  self.mode = source_type
+  if self.mode ~= prev_mode then
+    if self.init then
+      self.init(self.mode)
+    end
   end
-end
-
-function Sink:can_connect(source_type)
-  return type(self[source_type]) == "function"
-end
-
-function Sink:connect(source_type)
-  if not self:can_connect(source_type) then
-    return false
-  end
-  
-  if source_type ~= self.mode then
-    self.mode = source_type
-    self:init()
-  end
-  
-  return true
 end
 
 function Sink:receive(source_values)

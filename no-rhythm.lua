@@ -49,6 +49,9 @@ pressure = {
   {0, 0, 0, 0},
 }
 
+selected_source = nil
+selected_sink = nil
+
 grid_needs_redraw = true
 needs_redraw = true
 
@@ -116,6 +119,31 @@ function init()
       type="gate",
     }
   end
+  for i = 1, 2 do
+    matrix:add_source{
+      id="crow"..i,
+      type={"gate", "cv"},
+      init=function(mode)
+        if mode == "gate" then
+          crow.input[i].mode = "change"
+          crow.input[i].change = function(s)
+            local value = s and 8 or 0
+            matrix:send("crow"..i, value)
+            matrix:update()
+          end
+        elseif mode == "cv" then
+          crow.input[i]{
+            mode="stream",
+            time=0.002,
+          }
+          crow.input[i].stream = function(v)
+            matrix:send("crow"..i, util.linlin(0, 10, 0, 127, v))
+            matrix:update()
+          end
+        end
+      end
+    }
+  end
 
   matrix:add_sink{
     id="clock",
@@ -133,9 +161,6 @@ function init()
       if s > 0 then
         for _, seq in ipairs(seqs) do
           seq:select(last_touch)
-        end
-        if clock_running then
-          start_clock()
         end
       end
     end,
@@ -350,6 +375,180 @@ function init()
   seq_group:add(time_group)
   seq_group:add(pressure_group)
   
+  clock_src_button = gui.button.new{
+    x=1,
+    y=1,
+    off=3,
+    action=function(s)
+      select_source(s, "clock")
+    end
+  }
+  pitch_src_button = gui.button.new{
+    x=5,
+    y=1,
+    off=3,
+    action=function(s)
+      select_source(s, "pitch")
+    end
+  }
+  strength_src_button = gui.button.new{
+    x=6,
+    y=1,
+    off=3,
+    action=function(s)
+      select_source(s, "strength")
+    end
+  }
+  time_src_button = gui.button.new{
+    x=7,
+    y=1,
+    off=3,
+    action=function(s)
+      select_source(s, "time")
+    end
+  }
+  pressure_src_button = gui.button.new{
+    x=8,
+    y=1,
+    off=3,
+    action=function(s)
+      select_source(s, "pressure")
+    end
+  }
+  touch_gate_src_button = gui.button.new{
+    x=9,
+    y=1,
+    off=3,
+    action=function(s)
+      select_source(s, "touch_gate")
+    end
+  }
+  dyn_gate_src_button = gui.button.new{
+    x=10,
+    y=1,
+    off=3,
+    action=function(s)
+      select_source(s, "dyn_gate")
+    end
+  }
+  dyn_env_src_button = gui.button.new{
+    x=11,
+    y=1,
+    off=3,
+    action=function(s)
+      select_source(s, "dyn_env")
+    end
+  }
+  crow_src_buttons = {}
+  crow_src_group = gui.group.new()
+  for i=1,2 do
+    local button = gui.button.new{
+      x=12+i,
+      y=1,
+      off=3,
+      action=function(s)
+        select_source(s, "crow"..i)
+      end
+    }    
+    table.insert(crow_src_buttons, button)
+    crow_src_group:add(button)
+  end
+  gate_src_buttons = {}
+  gate_src_group = gui.group.new()
+  for i=1,8 do
+    local button = gui.button.new{
+      x=4+i,
+      y=3,
+      off=3,
+      action=function(s)
+        select_source(s, "gate"..i)
+      end
+    }
+    table.insert(gate_src_buttons, button)
+    gate_src_group:add(button)
+  end
+  clock_sink_button = gui.button.new{
+    x=1,
+    y=8,
+    off=3,
+    action=function(s)
+      select_sink(s, "clock")
+    end
+  }
+  dyn_reset_sink_button = gui.button.new{
+    x=2,
+    y=8,
+    off=3,
+    action=function(s)
+      select_sink(s, "dyn_reset")
+    end
+  }
+  stop_sink_button = gui.button.new{
+    x=3,
+    y=8,
+    off=3,
+    action=function(s)
+      select_sink(s, "stop")
+    end
+  }
+  direction_sink_button = gui.button.new{
+    x=4,
+    y=8,
+    off=3,
+    action=function(s)
+      select_sink(s, "direction")
+    end
+  }
+  strength_sink_button = gui.button.new{
+    x=6,
+    y=8,
+    off=3,
+    action=function(s)
+      select_sink(s, "strength")
+    end
+  }
+  time_sink_button = gui.button.new{
+    x=7,
+    y=8,
+    off=3,
+    action=function(s)
+      select_sink(s, "time")
+    end
+  }
+  crow_sink_buttons = {}
+  crow_sink_group = gui.group.new()
+  for i=1,4 do
+    local button = gui.button.new{
+      x=12+i,
+      y=8,
+      off=3,
+      action=function(s)
+        select_sink(s, "crow"..i)
+      end
+    }
+    table.insert(crow_sink_buttons, button)
+    crow_sink_group:add(button)
+  end
+  
+  patch_group = gui.group.new()
+  patch_group:add(clock_src_button)
+  patch_group:add(pitch_src_button)
+  patch_group:add(strength_src_button)
+  patch_group:add(time_src_button)
+  patch_group:add(pressure_src_button)
+  patch_group:add(touch_gate_src_button)
+  patch_group:add(dyn_gate_src_button)
+  patch_group:add(dyn_env_src_button)
+  patch_group:add(crow_src_group)
+  patch_group:add(gate_src_group)
+  patch_group:add(clock_sink_button)
+  patch_group:add(dyn_reset_sink_button)
+  patch_group:add(stop_sink_button)
+  patch_group:add(direction_sink_button)
+  patch_group:add(strength_sink_button)
+  patch_group:add(time_sink_button)
+  patch_group:add(crow_sink_group)
+  
   grid_redraw()
 end
 
@@ -357,6 +556,8 @@ function enc(n, d)
   if n == 1 then
     current_page = util.clamp(current_page + d, 1, 2)
     needs_redraw = true
+    grid_needs_redraw = true
+    grid_redraw()
   end
 end
 
@@ -376,8 +577,16 @@ function refresh()
     screen.move(64, 36)
     screen.text_center("sequencer")
   elseif current_page == 2 then
+    if selected_source then
+      screen.move(64, 8)
+      screen.text_center(selected_source)
+    end
     screen.move(64, 36)
     screen.text_center("patcher")
+    if selected_sink then
+      screen.move(64, 62)
+      screen.text_center(selected_sink)
+    end
   end
   
   screen.update()
@@ -390,14 +599,24 @@ function grid_redraw()
   grid_needs_redraw = false
   
   g:all(0)
+  local group
   if current_page == 1 then
-    seq_group:redraw(g)
+    group = seq_group
+  elseif current_page == 2 then
+    group = patch_group
   end
+  group:redraw(g)
   g:refresh()
 end
 
 function g.key(x, y, s)
-  local group = seq_group
+  local group
+  if current_page == 1 then
+    group = seq_group
+  elseif current_page == 2 then
+    group = patch_group
+  end
+  
   if group:key(x, y, s) then
     grid_needs_redraw = true
     grid_redraw()
@@ -512,17 +731,18 @@ function step_hi()
   local cycle = ppqn//div
   local half_cycle = cycle//2
 
+  matrix:send("gate"..active_step, 0)
+  matrix:update()
+
   local pitch_internal = seqs[1]()
   local strength_internal = seqs[2]()
   local time_internal = seqs[3]()
   local ix = seqs[1].ix
+  matrix:send("gate"..ix, 8)
+  matrix:update()
   matrix:send("pitch", pitch_internal)
   matrix:send("strength", strength_internal)
   matrix:send("time", time_internal)
-  matrix:send("gate"..ix, 8)
-  if ix ~= active_step then
-    matrix:send("gate"..active_step, 0)
-  end
   active_step = ix
   matrix:update()
 
@@ -584,6 +804,9 @@ function set_pressure_plate(step, index, value)
       if clock_running and not clock_stopped then
         start_clock()
       else
+        matrix:send("gate"..active_step, 0)
+        matrix:update()
+
         local pitch = seqs[1]()
         local strength = seqs[2]()
         local time = seqs[3]()
@@ -592,10 +815,8 @@ function set_pressure_plate(step, index, value)
           seqs[i]:select(last_touch)
         end
         matrix:send("gate"..ix, 8)
-        if ix ~= active_step then
-          matrix:send("gate"..active_step, 0)
-        end
         active_step = ix
+        matrix:update()
         matrix:send("pitch", pitch)
         matrix:send("strength", strength)
         matrix:send("time", time)
@@ -637,4 +858,31 @@ end
 
 function toggle_interrupt()
   interrupt = not interrupt
+end
+
+function select_source(s, source_id)
+  if s > 0 then
+    selected_source = source_id
+    toggle_connection()
+  elseif source_id == selected_source then
+    selected_source = nil
+  end
+  needs_redraw = true
+end
+
+function select_sink(s, sink_id)
+  if s > 0 then
+    selected_sink = sink_id
+    toggle_connection()
+  elseif sink_id == selected_sink then
+    selected_sink = nil
+  end
+  needs_redraw = true
+end
+
+function toggle_connection()
+  if not selected_source or not selected_sink then
+    return
+  end
+  matrix:toggle(selected_source, selected_sink)
 end

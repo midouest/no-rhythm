@@ -5,10 +5,22 @@ function Source.new(opts)
   local obj = {}
   obj.id = opts.id
   obj.type = opts.type
+  obj.init = opts.init
   obj.transform = opts.transform
   obj.state = nil
   obj.dirty = false
+  obj.mode = nil
   return setmetatable(obj, Source)
+end
+
+function Source:set_mode(sink_type)
+  local prev_mode = self.mode
+  self.mode = sink_type
+  if self.mode ~= prev_mode then
+    if self.init then
+      self.init(self.mode)
+    end
+  end
 end
 
 function Source:send(value)
