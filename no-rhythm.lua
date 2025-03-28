@@ -10,6 +10,8 @@ g = grid.connect()
 ppqn = 96
 divisions = {1, 2, 4}
 
+current_page = 1
+
 clock_started = false
 clock_stopped = false
 clock_running = false
@@ -337,18 +339,25 @@ function init()
     table.insert(pressure_buttons, row)
   end
   
-  root_group = gui.group.new()
-  root_group:add(channel_radio)
-  root_group:add(clock_toggle)
-  root_group:add(direction_toggle)
-  root_group:add(interrupt_toggle)
-  root_group:add(step_radio)
-  root_group:add(pitch_group)
-  root_group:add(strength_group)
-  root_group:add(time_group)
-  root_group:add(pressure_group)
+  seq_group = gui.group.new()
+  seq_group:add(channel_radio)
+  seq_group:add(clock_toggle)
+  seq_group:add(direction_toggle)
+  seq_group:add(interrupt_toggle)
+  seq_group:add(step_radio)
+  seq_group:add(pitch_group)
+  seq_group:add(strength_group)
+  seq_group:add(time_group)
+  seq_group:add(pressure_group)
   
   grid_redraw()
+end
+
+function enc(n, d)
+  if n == 1 then
+    current_page = util.clamp(current_page + d, 1, 2)
+    needs_redraw = true
+  end
 end
 
 function norns.crow.add(id, name, dev)
@@ -362,6 +371,15 @@ function refresh()
   needs_redraw = false
   
   screen.clear()
+  
+  if current_page == 1 then
+    screen.move(64, 36)
+    screen.text_center("sequencer")
+  elseif current_page == 2 then
+    screen.move(64, 36)
+    screen.text_center("patcher")
+  end
+  
   screen.update()
 end
 
@@ -372,12 +390,15 @@ function grid_redraw()
   grid_needs_redraw = false
   
   g:all(0)
-  root_group:redraw(g)
+  if current_page == 1 then
+    seq_group:redraw(g)
+  end
   g:refresh()
 end
 
 function g.key(x, y, s)
-  if root_group:key(x, y, s) then
+  local group = seq_group
+  if group:key(x, y, s) then
     grid_needs_redraw = true
     grid_redraw()
   end
