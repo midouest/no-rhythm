@@ -464,7 +464,7 @@ function run_clock()
       local half_cycle = cycle//2
       
       if (i-1)%cycle==0 then
-        matrix:send("clock", 1)
+        matrix:send("clock", 8)
         matrix:update()
       elseif (i+half_cycle-1)%cycle==0 then
         matrix:send("clock", 0)
