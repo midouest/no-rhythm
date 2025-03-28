@@ -49,7 +49,7 @@ function Sink:receive(source_values)
   if self.mode == 'gate' then
     local state = 0
     for _, value in ipairs(source_values) do
-      if value > 0 then
+      if value > state then
         state = value
         break
       end
