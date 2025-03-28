@@ -75,7 +75,7 @@ function Sink:receive(source_values)
         break
       end
     end
-    if event ~= nil then
+    if type(event) == "table" then
       self.env(event)
     end
   end
