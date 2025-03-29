@@ -62,7 +62,24 @@ function init()
     default=2,
   }
   
-  params:default()
+  for i, channel in ipairs({"strength", "time"}) do
+    params:add_group("nr_"..channel, channel, 8)
+    for j=1,8 do
+      params:add{
+        id="nr_"..channel..j,
+        name=channel.." "..j,
+        type="number",
+        default=seqs[i+1][j],
+        min=0,
+        max=127,
+        action=function(v)
+          seqs[i+1][j] = v
+          channel_faders[i+1][j].value = v
+          grid_needs_redraw = true
+        end
+      }
+    end
+  end
   
   matrix = modmatrix.new()
   
@@ -575,7 +592,15 @@ function init()
   patch_group:add(crow_sink_group)
   patch_group:add(jf_tr_sink_group)
   
+  params:default()
   grid_redraw()
+  
+  clock.run(function()
+    while true do
+      clock.sleep(1/15)
+      grid_redraw()
+    end
+  end)
 end
 
 function enc(n, d)
