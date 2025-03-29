@@ -763,11 +763,12 @@ function step_hi()
   
   matrix:send("gate"..active_step, 0)
   matrix:update()
-  matrix:send("gate"..ix, 8)
-  active_step = ix
   matrix:send("pitch", pitch_internal)
   matrix:send("strength", strength_internal)
   matrix:send("time", time_internal)
+  matrix:update()
+  matrix:send("gate"..ix, 8)
+  active_step = ix
   matrix:update()
 
   local strength = (strength_mod/127) * strength_cv
@@ -837,11 +838,11 @@ function set_pressure_plate(step, index, value)
         end
         matrix:send("gate"..active_step, 0)
         matrix:update()
-        matrix:send("gate"..ix, 8)
-        active_step = ix
         matrix:send("pitch", pitch)
         matrix:send("strength", strength)
         matrix:send("time", time)
+        matrix:send("gate"..ix, 8)
+        active_step = ix
       end
     end
     matrix:send("touch_gate", 8)
