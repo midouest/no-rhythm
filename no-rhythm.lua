@@ -69,10 +69,17 @@ function init()
   matrix:add_source{
     id="clock",
     type="gate",
+    action=function(s)
+      clock_src_button.level = s
+      grid_needs_redraw = true
+      grid_redraw()
+    end
   }
   matrix:add_source{
     id="pitch",
     type="cv",
+    action=function(v)
+    end,
     transform=function(v)
       return (v/12)-5
     end
@@ -80,6 +87,8 @@ function init()
   matrix:add_source{
     id="strength",
     type="cv",
+    action=function(v)
+    end,
     transform=function(v)
       return util.linlin(0, 127, 0, 5, v)
     end
@@ -87,6 +96,8 @@ function init()
   matrix:add_source{
     id="time",
     type="cv",
+    action=function(v)
+    end,
     transform=function(v)
       return util.linlin(0, 127, 0, 5, v)
     end
@@ -105,6 +116,11 @@ function init()
   matrix:add_source{
     id="dyn_gate",
     type="gate",
+    action=function(s)
+      dyn_gate_src_button.level = util.round(s)
+      grid_needs_redraw = true
+      grid_redraw()
+    end
   }
   matrix:add_source{
     id="dyn_env",
@@ -114,6 +130,11 @@ function init()
     matrix:add_source{
       id="gate"..i,
       type="gate",
+      action=function(s)
+        gate_src_buttons[i].level = util.round(s)
+        grid_needs_redraw = true
+        grid_redraw()
+      end
     }
   end
   for i = 1, 2 do

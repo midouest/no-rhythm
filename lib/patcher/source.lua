@@ -6,6 +6,7 @@ function Source.new(opts)
   obj.id = opts.id
   obj.type = opts.type
   obj.init = opts.init
+  obj.action = opts.action
   obj.transform = opts.transform
   obj.state = nil
   obj.dirty = false
@@ -27,6 +28,11 @@ function Source:send(value)
   local prev_state = self.state
   self.state = value
   self.dirty = self.dirty or self.state ~= prev_state
+  if self.dirty then
+    if self.action then
+      self.action(self.state)
+    end
+  end
 end
 
 function Source:read()
