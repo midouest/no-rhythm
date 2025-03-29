@@ -79,6 +79,7 @@ function init()
     id="pitch",
     type="cv",
     action=function(v)
+      pitch_src_button.level = v//12
     end,
     transform=function(v)
       return (v/12)-5
@@ -88,6 +89,7 @@ function init()
     id="strength",
     type="cv",
     action=function(v)
+      strength_src_button.level = v//12
     end,
     transform=function(v)
       return util.linlin(0, 127, 0, 5, v)
@@ -97,6 +99,7 @@ function init()
     id="time",
     type="cv",
     action=function(v)
+      time_src_button.level = v//12
     end,
     transform=function(v)
       return util.linlin(0, 127, 0, 5, v)
@@ -231,6 +234,15 @@ function init()
         crow.output[i].dyn.decay = e.decay
         crow.output[i]()
       end,
+    }
+  end
+  for i=1,6 do
+    matrix:add_sink{
+      id="jf.tr"..i,
+      external=true,
+      gate=function(v)
+        crow.ii.jf.trigger(i, v)
+      end
     }
   end
   
@@ -528,6 +540,21 @@ function init()
     crow_sink_group:add(button)
   end
   
+  jf_tr_sink_buttons = {}
+  jf_tr_sink_group = gui.group.new()
+  for i=1,6 do
+    local button = gui.button.new{
+      x=10+i,
+      y=6,
+      off=3,
+      action=function(s)
+        select_sink(s, "jf.tr"..i)
+      end
+    }
+    table.insert(jf_tr_sink_buttons, button)
+    jf_tr_sink_group:add(button)
+  end
+  
   patch_group = gui.group.new()
   patch_group:add(clock_src_button)
   patch_group:add(pitch_src_button)
@@ -546,6 +573,7 @@ function init()
   patch_group:add(strength_sink_button)
   patch_group:add(time_sink_button)
   patch_group:add(crow_sink_group)
+  patch_group:add(jf_tr_sink_group)
   
   grid_redraw()
 end
