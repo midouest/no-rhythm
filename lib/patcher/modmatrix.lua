@@ -96,7 +96,7 @@ function ModMatrix:connect(source_id, sink_id)
 
   self.matrix[sink.id][source.id] = true
   table.insert(self.connection_order[sink.id], source.id)
-  self:update_sink(sink.id)
+  self:update_sink(sink.id, true)
   return true
 end
 
@@ -115,7 +115,7 @@ function ModMatrix:disconnect(source_id, sink_id)
   if prev_connections > 0 and #self.connection_order[sink.id] == 0 then
     sink:receive({0})
   else
-    self:update_sink(sink.id)
+    self:update_sink(sink.id, true)
   end
 end
 
@@ -136,9 +136,12 @@ function ModMatrix:update()
   for _, sink_id in ipairs(self.sink_order) do
     self:update_sink(sink_id)
   end
+  for _, source in pairs(self.sources) do
+    source:mark_clean()
+  end
 end
 
-function ModMatrix:update_sink(sink_id)
+function ModMatrix:update_sink(sink_id, force)
   local sink = self.sinks[sink_id]
   local source_ids = self.matrix[sink.id]
   local values = {}
@@ -155,7 +158,12 @@ function ModMatrix:update_sink(sink_id)
   
   for source_id, _ in pairs(source_ids) do
     local source = self.sources[source_id]
-    local value = source:read()
+    local value = nil
+    if force then
+      value = source.state
+    else
+      value = source:read()
+    end
     if value ~= nil then
       if sink.external and source.transform then
         value = source.transform(value)

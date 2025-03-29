@@ -12,7 +12,6 @@ divisions = {1, 2, 4}
 
 current_page = 1
 
-clock_started = false
 clock_stopped = false
 clock_running = false
 clock_id = nil
@@ -30,11 +29,9 @@ active_step = 1
 
 strength_mod = 127
 strength_cv = 0
-strength_normalled = true
 speed = 100
 time_mod = 127
 time_cv = 0
-time_normalled = true
 
 interrupt = false
 last_touch = 1
@@ -168,15 +165,7 @@ function init()
   matrix:add_sink{
     id="stop",
     gate=function(s)
-      if s > 0 and clock_running then
-        clock_stopped = true
-        stop_clock()
-      elseif s == 0 and clock_stopped then
-        clock_stopped = false
-        if clock_started then
-          start_clock()
-        end
-      end
+      clock_stopped = s > 0
     end,
   }
   matrix:add_sink{
@@ -190,24 +179,12 @@ function init()
   }
   matrix:add_sink{
     id="strength",
-    connected=function()
-      strength_normalled = false
-    end,
-    disconnected=function()
-      strength_normalled = true
-    end,
     cv=function(v)
       strength_cv = v
     end,
   }
   matrix:add_sink{
     id="time",
-    connected=function()
-      time_normalled = false
-    end,
-    disconnected=function()
-      time_normalled = true
-    end,
     cv=function(v)
       time_cv = v
     end,
@@ -662,26 +639,20 @@ function select_time_mod(value)
 end
 
 function toggle_clock()
-  if not clock_started then
-    clock_started = true
+  if not clock_running then
     start_clock()
   else
-    clock_started = false
     stop_clock()
   end
 end
 
 function start_clock()
-  clock_running = true
-  if clock_stopped then
-    return
-  end
-
   if clock_running and clock_id ~= nil then
     clock.cancel(clock_id)
     matrix:send("clock", 0)
     matrix:update()
   end
+  clock_running = true
   clock_id = clock.run(run_clock)
 end
 
@@ -716,6 +687,11 @@ function run_clock()
 end
 
 function step_hi()
+  if clock_stopped then
+    for _, seq in ipairs(seqs) do
+      seq:select(active_step)
+    end
+  end
   if interrupt then
     for _, p in ipairs(pressure[last_touch]) do
       if p > 0 then
@@ -731,19 +707,18 @@ function step_hi()
   local cycle = ppqn//div
   local half_cycle = cycle//2
 
-  matrix:send("gate"..active_step, 0)
-  matrix:update()
-
   local pitch_internal = seqs[1]()
   local strength_internal = seqs[2]()
   local time_internal = seqs[3]()
   local ix = seqs[1].ix
-  matrix:send("gate"..ix, 8)
+  
+  matrix:send("gate"..active_step, 0)
   matrix:update()
+  matrix:send("gate"..ix, 8)
+  active_step = ix
   matrix:send("pitch", pitch_internal)
   matrix:send("strength", strength_internal)
   matrix:send("time", time_internal)
-  active_step = ix
   matrix:update()
 
   local strength = (strength_mod/127) * strength_cv
@@ -795,18 +770,15 @@ function set_pressure_plate(step, index, value)
   if value == 1 and (step ~= last_touch or not prev_pressure) then
     select_step(step)
     step_radio.state = step
-    last_touch = step
   
     if interrupt then
+      last_touch = step
       for _, seq in ipairs(seqs) do
         seq:select(last_touch)
       end
-      if clock_running and not clock_stopped then
+      if clock_running then
         start_clock()
       else
-        matrix:send("gate"..active_step, 0)
-        matrix:update()
-
         local pitch = seqs[1]()
         local strength = seqs[2]()
         local time = seqs[3]()
@@ -814,9 +786,10 @@ function set_pressure_plate(step, index, value)
         for i=1,3 do
           seqs[i]:select(last_touch)
         end
+        matrix:send("gate"..active_step, 0)
+        matrix:update()
         matrix:send("gate"..ix, 8)
         active_step = ix
-        matrix:update()
         matrix:send("pitch", pitch)
         matrix:send("strength", strength)
         matrix:send("time", time)

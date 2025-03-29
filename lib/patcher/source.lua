@@ -33,13 +33,14 @@ function Source:read()
   if not self.dirty then
     return nil
   end
+  return self.state
+end
 
-  local value = self.state
+function Source:mark_clean()
   self.dirty = false
-  if self.type == "env" then
+  if self.mode == "env" then
     self.state = nil
   end
-  return value
 end
 
 return Source
